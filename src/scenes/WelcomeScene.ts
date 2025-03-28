@@ -1,10 +1,11 @@
+// /workspaces/beta2/src/scenes/WelcomeScene.ts
 import Phaser from 'phaser';
 import HomeButton from '../components/HomeButton';
 import { getResponsivePosition } from '../utils/responsiveUtils';
 
 export default class WelcomeScene extends Phaser.Scene {
   private homeButton!: HomeButton;
-  private bgm!: Phaser.Sound.BaseSound; // BGMをクラス変数に
+  public bgm!: Phaser.Sound.BaseSound;
 
   constructor() {
     super({ key: 'WelcomeScene' });
@@ -28,8 +29,8 @@ export default class WelcomeScene extends Phaser.Scene {
       ease: 'Power2',
     });
 
-    // BGMを初期化（再生はしない）
-    this.bgm = this.sound.add('bgm', { loop: true, volume: 0.5 });
+    this.bgm = this.sound.add('bgm', { loop: true, volume: 1.0 });
+    console.log('BGM initialized:', this.bgm);
 
     this.homeButton = new HomeButton(this, () => this.returnToHome());
 
@@ -40,8 +41,13 @@ export default class WelcomeScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive();
 
     startButton.on('pointerdown', () => {
-      if (!this.bgm.isPlaying) this.bgm.play(); // 初回タップでBGM再生
-      this.scene.start('StageSelectScene');
+      console.log('Start tapped, playing BGM...');
+      this.bgm.play();
+      const webAudioBgm = this.bgm as Phaser.Sound.WebAudioSound; // 型キャスト
+      console.log('BGM playing:', this.bgm.isPlaying, 'Source:', webAudioBgm.source);
+      this.time.delayedCall(100, () => {
+        this.scene.start('StageSelectScene');
+      });
     });
     startButton.on('pointerover', () => startButton.setStyle({ color: '#666' }));
     startButton.on('pointerout', () => startButton.setStyle({ color: '#333' }));
