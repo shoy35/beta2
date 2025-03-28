@@ -1,6 +1,7 @@
-// /workspaces/beta2/src/main.ts
 import Phaser from 'phaser';
 import WelcomeScene from './scenes/WelcomeScene';
+import StageSelectScene from './scenes/StageSelectScene';
+import GameScene from './scenes/GameScene'; // 未実装なら仮置き
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -14,10 +15,10 @@ const config: Phaser.Types.Core.GameConfig = {
     default: 'matter',
     matter: {
       gravity: { x: 0, y: 0.5 },
-      debug: false, // デバッグ表示をオフ（黒い四角を消す）
+      debug: false,
     },
   },
-  scene: [WelcomeScene],
+  scene: [WelcomeScene, StageSelectScene, GameScene], // GameSceneを追加
   parent: 'game-container',
 };
 
