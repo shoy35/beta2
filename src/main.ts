@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import WelcomeScene from './scenes/WelcomeScene';
 import StageSelectScene from './scenes/StageSelectScene';
-import GameScene from './scenes/GameScene'; // 未実装なら仮置き
+import GameScene from './scenes/GameScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -14,12 +14,15 @@ const config: Phaser.Types.Core.GameConfig = {
   physics: {
     default: 'matter',
     matter: {
-      gravity: { x: 0, y: 0.5 },
+      gravity: { x: 0, y: 1 }, // GameSceneと統一
       debug: false,
     },
   },
-  scene: [WelcomeScene, StageSelectScene, GameScene], // GameSceneを追加
+  scene: [WelcomeScene, StageSelectScene, GameScene],
   parent: 'game-container',
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// WelcomeSceneから開始
+game.scene.start('WelcomeScene');
