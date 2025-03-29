@@ -6,7 +6,7 @@ import WelcomeScene from './WelcomeScene';
 import { getResponsivePosition } from '../utils/responsiveUtils';
 
 interface PieceData {
-  container: Phaser.GameObjects.Container; // ピースと番号をまとめるコンテナ
+  container: Phaser.GameObjects.Container;
   piece: Phaser.GameObjects.Rectangle;
   originalPosition: { x: number; y: number };
   vertices: { x: number; y: number }[];
@@ -73,7 +73,7 @@ export default class GameScene extends Phaser.Scene {
     this.shape.setFillStyle(0x000000, 0).setStrokeStyle(2, 0x333333, 0.5);
 
     const { x, y } = getResponsivePosition(this, 0.5, 0.5);
-    const pieceCount = 12; // ピース数を12に変更
+    const pieceCount = 12;
     this.pieces = [];
 
     const shapeWidth = 200;
@@ -98,14 +98,17 @@ export default class GameScene extends Phaser.Scene {
 
         const offsetX = Phaser.Math.Between(-50, 50);
         const offsetY = Phaser.Math.Between(-50, 50);
-        const piece = this.add.rectangle(0, 0, pieceWidth, pieceHeight, 0x888888); // コンテナ内で位置を調整
+        const piece = this.add.rectangle(0, 0, pieceWidth, pieceHeight, 0x888888);
+        piece.setAlpha(1); // 可視性を確認
+        piece.setVisible(true);
         const numberText = this.add.text(0, 0, `${pieceIndex + 1}`, {
           fontSize: '16px',
-          color: '#000000', // 黒に変更
+          color: '#000000',
         }).setOrigin(0.5);
 
-        // コンテナを作成し、ピースと番号を結合
         const container = this.add.container(pieceX + offsetX, pieceY + offsetY, [piece, numberText]);
+        container.setSize(pieceWidth, pieceHeight); // コンテナのサイズを設定
+        console.log(`Piece ${pieceIndex + 1} created at (${container.x}, ${container.y})`);
 
         this.pieces.push({
           container,
@@ -125,12 +128,13 @@ export default class GameScene extends Phaser.Scene {
         if (physicsObject.body) {
           const body = physicsObject.body as Matter.Body;
           Matter.Body.setVelocity(body, { x: 0, y: 3 });
+          console.log(`Piece ${pieceIndex + 1} body position: (${body.position.x}, ${body.position.y})`);
         }
 
         pieceIndex++;
       }
     }
-    console.log('Shape split into pieces');
+    console.log(`Shape split into ${this.pieces.length} pieces`);
   }
 
   private createEasyModeButton() {
