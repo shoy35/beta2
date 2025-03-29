@@ -5,12 +5,21 @@ import HomeButton from '../components/HomeButton';
 import WelcomeScene from './WelcomeScene';
 import { getResponsivePosition } from '../utils/responsiveUtils';
 
+interface PieceData {
+  container: Phaser.GameObjects.Container; // ピースと番号をまとめるコンテナ
+  piece: Phaser.GameObjects.Rectangle;
+  originalPosition: { x: number; y: number };
+  vertices: { x: number; y: number }[];
+  number: number;
+  numberText: Phaser.GameObjects.Text;
+}
+
 export default class GameScene extends Phaser.Scene {
   private homeButton!: HomeButton;
   private shape!: Phaser.GameObjects.Rectangle;
   private tapButton!: Phaser.GameObjects.Text;
-  private pieces: Phaser.GameObjects.Rectangle[] = [];
-  private originalPositions: { x: number; y: number }[] = []; // ピースの元の位置を記録
+  private pieces: PieceData[] = [];
+  private guideNumbers: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super({ key: 'GameScene' });
@@ -62,41 +71,70 @@ export default class GameScene extends Phaser.Scene {
 
   private splitShape() {
     this.shape.setFillStyle(0x000000, 0).setStrokeStyle(2, 0x333333, 0.5);
+
     const { x, y } = getResponsivePosition(this, 0.5, 0.5);
-    const pieceCount = 10;
-    const pieceSize = 50;
+    const pieceCount = 12; // ピース数を12に変更
+    this.pieces = [];
 
-    // ピースの元の位置を計算（仮にグリッド状に配置）
-    this.originalPositions = [];
-    const gridSize = Math.sqrt(pieceCount); // グリッドの1辺（例: 10ピースなら3x4）
-    const offset = 200 / gridSize; // 200x200の正方形をグリッドに分割
-    for (let i = 0; i < pieceCount; i++) {
-      const row = Math.floor(i / gridSize);
-      const col = i % gridSize;
-      const posX = x - 100 + col * offset + offset / 2; // 中心を調整
-      const posY = y - 100 + row * offset + offset / 2;
-      this.originalPositions.push({ x: posX, y: posY });
+    const shapeWidth = 200;
+    const shapeHeight = 200;
+    const rows = 3;
+    const cols = 4;
+    const pieceWidth = shapeWidth / cols;
+    const pieceHeight = shapeHeight / rows;
 
-      const offsetX = Phaser.Math.Between(-50, 50);
-      const offsetY = Phaser.Math.Between(-50, 50);
-      const piece = this.add.rectangle(posX + offsetX, posY + offsetY, pieceSize, pieceSize, 0x888888);
-      this.pieces.push(piece);
-      const physicsObject = this.matter.add.gameObject(piece, {
-        shape: 'rectangle',
-        mass: 1,
-        friction: 0.5,
-      }) as Phaser.Physics.Matter.Sprite;
+    let pieceIndex = 0;
+    for (let row = 0; row < rows && pieceIndex < pieceCount; row++) {
+      for (let col = 0; col < cols && pieceIndex < pieceCount; col++) {
+        const pieceX = x - shapeWidth / 2 + col * pieceWidth + pieceWidth / 2;
+        const pieceY = y - shapeHeight / 2 + row * pieceHeight + pieceHeight / 2;
 
-      if (physicsObject.body) {
-        const body = physicsObject.body as Matter.Body;
-        Matter.Body.setVelocity(body, { x: 0, y: 3 });
+        const vertices = [
+          { x: pieceX - pieceWidth / 2, y: pieceY - pieceHeight / 2 },
+          { x: pieceX + pieceWidth / 2, y: pieceY - pieceHeight / 2 },
+          { x: pieceX + pieceWidth / 2, y: pieceY + pieceHeight / 2 },
+          { x: pieceX - pieceWidth / 2, y: pieceY + pieceHeight / 2 },
+        ];
+
+        const offsetX = Phaser.Math.Between(-50, 50);
+        const offsetY = Phaser.Math.Between(-50, 50);
+        const piece = this.add.rectangle(0, 0, pieceWidth, pieceHeight, 0x888888); // コンテナ内で位置を調整
+        const numberText = this.add.text(0, 0, `${pieceIndex + 1}`, {
+          fontSize: '16px',
+          color: '#000000', // 黒に変更
+        }).setOrigin(0.5);
+
+        // コンテナを作成し、ピースと番号を結合
+        const container = this.add.container(pieceX + offsetX, pieceY + offsetY, [piece, numberText]);
+
+        this.pieces.push({
+          container,
+          piece,
+          originalPosition: { x: pieceX, y: pieceY },
+          vertices,
+          number: pieceIndex + 1,
+          numberText,
+        });
+
+        const physicsObject = this.matter.add.gameObject(container, {
+          shape: 'rectangle',
+          mass: 1,
+          friction: 0.5,
+        }) as Phaser.Physics.Matter.Sprite;
+
+        if (physicsObject.body) {
+          const body = physicsObject.body as Matter.Body;
+          Matter.Body.setVelocity(body, { x: 0, y: 3 });
+        }
+
+        pieceIndex++;
       }
     }
     console.log('Shape split into pieces');
   }
 
   private createEasyModeButton() {
-    const { x, y } = getResponsivePosition(this, 0.1, 0.1); // 右上 → 左上に移動
+    const { x, y } = getResponsivePosition(this, 0.1, 0.1);
     const easyButton = this.add.text(x, y, 'Easy Mode', {
       fontSize: '32px',
       color: '#333',
@@ -106,9 +144,27 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private toggleEasyMode() {
-    this.originalPositions.forEach((pos, index) => {
-      this.add.rectangle(pos.x, pos.y, 50, 50, 0x000000, 0)
-        .setStrokeStyle(1, 0xFF0000, 0.5);
+    this.guideNumbers.forEach((text) => text.destroy());
+    this.guideNumbers = [];
+
+    this.pieces.forEach((pieceData) => {
+      const graphics = this.add.graphics();
+      graphics.lineStyle(1, 0xFF0000, 0.5);
+      graphics.beginPath();
+      graphics.moveTo(pieceData.vertices[0].x, pieceData.vertices[0].y);
+      for (let i = 1; i < pieceData.vertices.length; i++) {
+        graphics.lineTo(pieceData.vertices[i].x, pieceData.vertices[i].y);
+      }
+      graphics.closePath();
+      graphics.strokePath();
+
+      const centerX = pieceData.originalPosition.x;
+      const centerY = pieceData.originalPosition.y;
+      const numberText = this.add.text(centerX, centerY, `${pieceData.number}`, {
+        fontSize: '16px',
+        color: '#FF0000',
+      }).setOrigin(0.5);
+      this.guideNumbers.push(numberText);
     });
   }
 
