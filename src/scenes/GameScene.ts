@@ -4,25 +4,19 @@ import Matter from 'matter-js';
 import HomeButton from '../components/HomeButton';
 import WelcomeScene from './WelcomeScene';
 import { getResponsivePosition } from '../utils/responsiveUtils';
-import { voronoi } from 'd3-voronoi';
 
 interface PieceData {
   container: Phaser.GameObjects.Container;
-  piece: Phaser.GameObjects.Polygon | Phaser.GameObjects.Rectangle;
+  piece: Phaser.GameObjects.Image;
   originalPosition: { x: number; y: number };
-  vertices: { x: number; y: number }[];
   number: number;
-  numberText: Phaser.GameObjects.Text | null;
-  offsetX: number; // 追加：ピースのローカルオフセット
-  offsetY: number;
 }
 
 export default class GameScene extends Phaser.Scene {
   private homeButton!: HomeButton;
   private shape!: Phaser.GameObjects.Rectangle;
-  private tapButton!: Phaser.GameObjects.Text;
+  private startButton!: Phaser.GameObjects.Text;
   private pieces: PieceData[] = [];
-  private guideNumbers: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super({ key: 'GameScene' });
@@ -31,6 +25,14 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     this.load.audio('snap', 'assets/audio/snap.mp3');
     this.load.image('spark', 'assets/particles/spark.png');
+    // SVGファイルをロード
+    this.load.svg('piece1', 'assets/tangram_piece1.svg');
+    this.load.svg('piece2', 'assets/tangram_piece2.svg');
+    this.load.svg('piece3', 'assets/tangram_piece3.svg');
+    this.load.svg('piece4', 'assets/tangram_piece4.svg');
+    this.load.svg('piece5', 'assets/tangram_piece5.svg');
+    this.load.svg('piece6', 'assets/tangram_piece6.svg');
+    this.load.svg('piece7', 'assets/tangram_piece7.svg');
   }
 
   init(data: { stageId: number }) {
@@ -51,7 +53,7 @@ export default class GameScene extends Phaser.Scene {
       alpha: 1,
       duration: 1000,
       ease: 'Power2',
-      onComplete: () => this.showTapButton(),
+      onComplete: () => this.showStartButton(),
     });
     this.homeButton = new HomeButton(this, () => this.returnToHome());
     this.matter.world.setBounds(0, 0, 1170, 2532, 50);
@@ -65,171 +67,64 @@ export default class GameScene extends Phaser.Scene {
     console.log('GameScene created');
   }
 
-  private showTapButton() {
+  private showStartButton() {
     const { x, y } = getResponsivePosition(this, 0.5, 0.5);
-    this.tapButton = this.add.text(x, y, 'Tap Me', {
+    this.startButton = this.add.text(x, y, 'Start', {
       fontSize: '32px',
       color: '#FFFFFF',
       backgroundColor: '#333333',
       padding: { x: 10, y: 5 },
     }).setOrigin(0.5).setInteractive();
 
-    this.tapButton.on('pointerdown', () => {
-      console.log('Shape tapped!');
-      this.tapButton.destroy();
+    this.startButton.on('pointerdown', () => {
+      console.log('Start button pressed!');
+      this.startButton.destroy();
       this.splitShape();
     });
-    this.tapButton.on('pointerover', () => this.tapButton.setStyle({ color: '#CCCCCC' }));
-    this.tapButton.on('pointerout', () => this.tapButton.setStyle({ color: '#FFFFFF' }));
+    this.startButton.on('pointerover', () => this.startButton.setStyle({ color: '#CCCCCC' }));
+    this.startButton.on('pointerout', () => this.startButton.setStyle({ color: '#FFFFFF' }));
   }
 
   private splitShape() {
-    this.shape.setFillStyle(0x000000, 0).setStrokeStyle(2, 0x333333, 0.5);
-
+    this.shape.setAlpha(0); // 初期の正方形を非表示
     const { x, y } = getResponsivePosition(this, 0.5, 0.5);
-    const pieceCount = 12;
     this.pieces = [];
-
-    const shapeWidth = 500;
-    const shapeHeight = 500;
-
-    const points: [number, number][] = [];
-    for (let i = 0; i < pieceCount; i++) {
-      points.push([
-        x - shapeWidth / 2 + Phaser.Math.Between(0, shapeWidth),
-        y - shapeHeight / 2 + Phaser.Math.Between(0, shapeHeight),
-      ]);
-    }
-
-    const v = voronoi().extent([
-      [x - shapeWidth / 2, y - shapeHeight / 2],
-      [x + shapeWidth / 2, y + shapeHeight / 2],
-    ]);
-    const polygons = v(points).polygons();
-
-    let pieceIndex = 0;
-    polygons.forEach((polygon: [number, number][], index: number) => {
-      if (!polygon || pieceIndex >= pieceCount) return;
-
-      const verticesGlobal = polygon.map(([px, py]) => ({ x: px, y: py }));
-      const centerX = verticesGlobal.reduce((sum, v) => sum + v.x, 0) / verticesGlobal.length;
-      const centerY = verticesGlobal.reduce((sum, v) => sum + v.y, 0) / verticesGlobal.length;
-
-      const verticesLocal = verticesGlobal.map(v => ({
-        x: v.x - centerX,
-        y: v.y - centerY,
-      }));
-
+  
+    // SVGベースのピース生成
+    const pieceKeys = ['piece1', 'piece2', 'piece3', 'piece4', 'piece5', 'piece6', 'piece7'];
+    pieceKeys.forEach((key, index) => {
       const offsetX = Phaser.Math.Between(-300, 300);
       const offsetY = Phaser.Math.Between(-300, 300);
       const initialX = x + offsetX;
       const initialY = y + offsetY;
-
-      const clampedX = Phaser.Math.Clamp(initialX, 50, 1170 - 50);
-      const clampedY = Phaser.Math.Clamp(initialY, 50, 2532 - 50);
-
-      const piece = this.add.polygon(0, 0, verticesLocal, 0x888888);
-      piece.setAlpha(1);
-      piece.setVisible(true);
-
+      const clampedX = Phaser.Math.Clamp(initialX, 500, 1170 - 500); // ピースの半径を考慮
+      const clampedY = Phaser.Math.Clamp(initialY, 500, 2532 - 500);
+  
+      const piece = this.add.image(0, 0, key).setScale(2); // スケールを2倍に
+      piece.setOrigin(0.5, 0.5); // 中心を原点に
+  
       const container = this.add.container(clampedX, clampedY, [piece]);
-
-      const bounds = verticesLocal.reduce(
-        (acc, v) => ({
-          minX: Math.min(acc.minX, v.x),
-          maxX: Math.max(acc.maxX, v.x),
-          minY: Math.min(acc.minY, v.y),
-          maxY: Math.max(acc.maxY, v.y),
-        }),
-        { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
-      );
-      const width = bounds.maxX - bounds.minX;
-      const height = bounds.maxY - bounds.minY;
-      container.setSize(width, height);
-
-      const interactivePolygon = new Phaser.Geom.Polygon(verticesLocal);
-      container.setInteractive(interactivePolygon, Phaser.Geom.Polygon.Contains);
-
-      (container as any).pieceIndex = pieceIndex;
-
-      container.on('pointerdown', () => {
-        if (container.body) {
-          Matter.Body.setStatic(container.body as Matter.Body, true);
-        }
-      });
-      container.on('pointerup', () => {
-        const idx = (container as any).pieceIndex;
-        this.snapPiece(idx);
-      });
+      container.setSize(1000, 1000); // コンテナのサイズも2倍に
+  
+      // ドラッグアンドドロップを有効化
+      container.setInteractive();
+      this.input.setDraggable(container);
       container.on('drag', (pointer: Phaser.Input.Pointer, dragX: number, dragY: number) => {
         container.x = dragX;
         container.y = dragY;
       });
-
-      if (this.input) {
-        this.input.setDraggable(container);
-      } else {
-        console.error('Input plugin is not initialized');
-      }
-
+  
       this.pieces.push({
         container,
         piece,
-        originalPosition: { x: centerX, y: centerY },
-        vertices: verticesGlobal,
-        number: pieceIndex + 1,
-        numberText: null,
-        offsetX: -verticesLocal[0].x, // オフセットを保存
-        offsetY: -verticesLocal[0].y,
+        originalPosition: { x, y }, // 簡易的に中心を基準に
+        number: index + 1,
       });
-
-      const physicsObject = this.matter.add.gameObject(container, {
-        shape: { type: 'fromVertices', verts: verticesLocal },
-        mass: 1,
-        friction: 0.5,
-        slop: 0,
-      }) as Phaser.Physics.Matter.Sprite;
-
-      if (physicsObject.body) {
-        const body = physicsObject.body as Matter.Body;
-        Matter.Body.setStatic(body, true);
-        console.log(`Piece ${pieceIndex + 1} created at: (${container.x}, ${container.y})`);
-        console.log(`Piece ${pieceIndex + 1} body position: (${body.position.x}, ${body.position.y})`);
-      }
-
-      pieceIndex++;
+  
+      console.log(`Piece ${index + 1} created at: (${container.x}, ${container.y})`);
     });
-
-    this.matter.world.setGravity(0, 0);
+  
     console.log(`Shape split into ${this.pieces.length} pieces`);
-  }
-
-  private snapPiece(index: number) {
-    const pieceData = this.pieces[index];
-    if (!pieceData) {
-      console.error(`Piece at index ${index} not found`);
-      return;
-    }
-    const container = pieceData.container;
-    const targetPos = pieceData.originalPosition;
-    const distance = Phaser.Math.Distance.Between(container.x, container.y, targetPos.x, targetPos.y);
-    console.log(`Snap distance for piece ${index + 1}: ${distance}`);
-    if (distance < 150) { // 閾値を150に緩和
-      // オフセットを考慮してコンテナの位置を調整
-      container.x = targetPos.x + pieceData.offsetX;
-      container.y = targetPos.y + pieceData.offsetY;
-      this.sound.play('snap');
-      pieceData.piece.setFillStyle(0x00FF00);
-      if (container.body) {
-        Matter.Body.setStatic(container.body as Matter.Body, true);
-      }
-      console.log(`Piece ${index + 1} snapped to (${container.x}, ${container.y})`);
-    } else {
-      if (container.body) {
-        Matter.Body.setStatic(container.body as Matter.Body, true);
-      }
-      console.log(`Snap failed for piece ${index + 1}: distance ${distance} is too large`);
-    }
   }
 
   private createEasyModeButton() {
@@ -243,28 +138,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private toggleEasyMode() {
-    this.guideNumbers.forEach((text) => text.destroy());
-    this.guideNumbers = [];
-
-    this.pieces.forEach((pieceData) => {
-      const graphics = this.add.graphics();
-      graphics.lineStyle(1, 0xFF0000, 0.5);
-      graphics.beginPath();
-      graphics.moveTo(pieceData.vertices[0].x, pieceData.vertices[0].y);
-      for (let i = 1; i < pieceData.vertices.length; i++) {
-        graphics.lineTo(pieceData.vertices[i].x, pieceData.vertices[i].y);
-      }
-      graphics.closePath();
-      graphics.strokePath();
-
-      const centerX = pieceData.originalPosition.x;
-      const centerY = pieceData.originalPosition.y;
-      const numberText = this.add.text(centerX, centerY, `${pieceData.number}`, {
-        fontSize: '16px',
-        color: '#FF0000',
-      }).setOrigin(0.5);
-      this.guideNumbers.push(numberText);
-    });
+    // Easy Modeの実装は後で調整
+    console.log('Easy Mode toggled');
   }
 
   returnToHome() {
