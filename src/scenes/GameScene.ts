@@ -1,13 +1,13 @@
-// /workspaces/beta2/src/scenes/GameScene.ts
 import Phaser from 'phaser';
-import Matter from 'matter-js';
 import HomeButton from '../components/HomeButton';
 import WelcomeScene from './WelcomeScene';
 import { getResponsivePosition } from '../utils/responsiveUtils';
+import * as Matter from 'matter-js';
 
 interface PieceData {
   container: Phaser.GameObjects.Container;
-  piece: Phaser.GameObjects.Image;
+  piece: Phaser.GameObjects.Image; // 型を Image に変更
+  body: Phaser.Types.Physics.Matter.MatterBody;
   originalPosition: { x: number; y: number };
   number: number;
 }
@@ -19,29 +19,21 @@ export default class GameScene extends Phaser.Scene {
   private pieces: PieceData[] = [];
 
   constructor() {
-    super({ key: 'GameScene' });
+    super({
+      key: 'GameScene',
+      physics: {
+        default: 'matter',
+        matter: {
+          gravity: { x: 0, y: 0 },
+          debug: true,
+        },
+      },
+    });
   }
 
   preload() {
-    this.load.audio('snap', 'assets/audio/snap.mp3');
-    this.load.image('spark', 'assets/particles/spark.png');
-    // SVGファイルをロード
-    this.load.svg('piece1', 'assets/tangram_piece1.svg');
-    this.load.svg('piece2', 'assets/tangram_piece2.svg');
-    this.load.svg('piece3', 'assets/tangram_piece3.svg');
-    this.load.svg('piece4', 'assets/tangram_piece4.svg');
-    this.load.svg('piece5', 'assets/tangram_piece5.svg');
-    this.load.svg('piece6', 'assets/tangram_piece6.svg');
-    this.load.svg('piece7', 'assets/tangram_piece7.svg');
-  }
-
-  init(data: { stageId: number }) {
-    console.log(`Starting GameScene with stageId: ${data.stageId}`);
-    const welcomeScene = this.scene.get('WelcomeScene') as WelcomeScene;
-    if (welcomeScene.bgm && welcomeScene.bgm.isPlaying) {
-      welcomeScene.bgm.stop();
-      console.log('BGM stopped in GameScene');
-    }
+    this.load.svg('square1', 'assets/square1.svg'); // SVGファイルを読み込む
+    this.load.svg('square2', 'assets/square2.svg'); // SVGファイルを読み込む
   }
 
   create() {
@@ -56,15 +48,9 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => this.showStartButton(),
     });
     this.homeButton = new HomeButton(this, () => this.returnToHome());
+
     this.matter.world.setBounds(0, 0, 1170, 2532, 50);
-    this.matter.world.setGravity(0, 1, 0.001);
-    this.createEasyModeButton();
-    try {
-      this.sound.add('snap', { volume: 0.5 });
-    } catch (error) {
-      console.error('Failed to load snap sound:', error);
-    }
-    console.log('GameScene created');
+    this.matter.world.setGravity(0, 0);
   }
 
   private showStartButton() {
@@ -77,70 +63,74 @@ export default class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive();
 
     this.startButton.on('pointerdown', () => {
-      console.log('Start button pressed!');
       this.startButton.destroy();
       this.splitShape();
     });
-    this.startButton.on('pointerover', () => this.startButton.setStyle({ color: '#CCCCCC' }));
-    this.startButton.on('pointerout', () => this.startButton.setStyle({ color: '#FFFFFF' }));
   }
 
   private splitShape() {
-    this.shape.setAlpha(0); // 初期の正方形を非表示
-    const { x, y } = getResponsivePosition(this, 0.5, 0.5);
+    this.shape.setAlpha(0);
     this.pieces = [];
   
-    // SVGベースのピース生成
-    const pieceKeys = ['piece1', 'piece2', 'piece3', 'piece4', 'piece5', 'piece6', 'piece7'];
-    pieceKeys.forEach((key, index) => {
-      const offsetX = Phaser.Math.Between(-300, 300);
-      const offsetY = Phaser.Math.Between(-300, 300);
-      const initialX = x + offsetX;
-      const initialY = y + offsetY;
-      const clampedX = Phaser.Math.Clamp(initialX, 500, 1170 - 500); // ピースの半径を考慮
-      const clampedY = Phaser.Math.Clamp(initialY, 500, 2532 - 500);
+    const screenWidth = this.cameras.main.width;
+    const screenHeight = this.cameras.main.height;
+    const pieceSize = 100;
   
-      const piece = this.add.image(0, 0, key).setScale(2); // スケールを2倍に
-      piece.setOrigin(0.5, 0.5); // 中心を原点に
+    const getRandomPosition = (width: number, height: number) => {
+      return {
+        x: Phaser.Math.FloatBetween(width / 2, screenWidth - width / 2),
+        y: Phaser.Math.FloatBetween(height / 2, screenHeight - height / 2),
+      };
+    };
   
-      const container = this.add.container(clampedX, clampedY, [piece]);
-      container.setSize(1000, 1000); // コンテナのサイズも2倍に
+    // 共通関数でピースを作成
+    const createPiece = (
+      key: string,
+      number: number
+    ): PieceData => {
+      const scale = pieceSize / 100;
+      const image = this.add.image(0, 0, key).setOrigin(0.5).setScale(scale);
+      
+      // 画像読み込み後に正確な表示サイズを取得
+      const displayWidth = image.width * scale;
+      const displayHeight = image.height * scale;
   
-      // ドラッグアンドドロップを有効化
-      container.setInteractive();
-      this.input.setDraggable(container);
+      const body = this.matter.bodies.rectangle(0, 0, displayWidth, displayHeight, {
+        friction: 0.1,
+        restitution: 0.3,
+        isStatic: false,
+      });
+  
+      const container = this.add.container(0, 0, [image]);
+      container.setSize(displayWidth, displayHeight);
+      this.matter.add.gameObject(container, body);
+      container.setInteractive({ draggable: true, useHandCursor: true });
+  
       container.on('drag', (pointer: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-        container.x = dragX;
-        container.y = dragY;
+        container.setPosition(dragX, dragY);
+        this.matter.body.setPosition(body, { x: dragX, y: dragY });
       });
   
-      this.pieces.push({
+      const pos = getRandomPosition(displayWidth, displayHeight);
+      container.setPosition(pos.x, pos.y);
+      this.matter.body.setPosition(body, pos);
+  
+      return {
         container,
-        piece,
-        originalPosition: { x, y }, // 簡易的に中心を基準に
-        number: index + 1,
-      });
+        piece: image,
+        body,
+        originalPosition: pos,
+        number,
+      };
+    };
   
-      console.log(`Piece ${index + 1} created at: (${container.x}, ${container.y})`);
-    });
+    this.pieces.push(createPiece('square1', 1));
+    this.pieces.push(createPiece('square2', 2));
   
-    console.log(`Shape split into ${this.pieces.length} pieces`);
+    const debugGraphic = this.matter.world.createDebugGraphic();
+    debugGraphic.setDepth(100);
   }
-
-  private createEasyModeButton() {
-    const { x, y } = getResponsivePosition(this, 0.1, 0.1);
-    const easyButton = this.add.text(x, y, 'Easy Mode', {
-      fontSize: '32px',
-      color: '#333',
-    }).setOrigin(0.5).setInteractive();
-
-    easyButton.on('pointerdown', () => this.toggleEasyMode());
-  }
-
-  private toggleEasyMode() {
-    // Easy Modeの実装は後で調整
-    console.log('Easy Mode toggled');
-  }
+  
 
   returnToHome() {
     this.scene.start('WelcomeScene');

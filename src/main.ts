@@ -14,7 +14,7 @@ const config: Phaser.Types.Core.GameConfig = {
   physics: {
     default: 'matter',
     matter: {
-      gravity: { x: 0, y: 1 }, // GameSceneと統一
+      gravity: { x: 0, y: 0 }, // GameSceneと統一
       debug: false,
     },
   },
